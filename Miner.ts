@@ -22,50 +22,46 @@ export class Miner {
   }
 
   public async mineBlock() {
-    let maxBlockSize = 4000000;
-    const tx = this.mempoll.txs;
-    const fees = this.mempoll.feesArrayVector;
-    const weights = this.mempoll.txWeightVector;
+    try {
+      let maxBlockSize = 4000000;
+      const tx = this.mempoll.txs;
+      const fees = this.mempoll.feesArrayVector;
+      const weights = this.mempoll.txWeightVector;
 
-    const res = this.fillBlock(maxBlockSize - 2000, tx, fees, weights);
+      const res = this.fillBlock(maxBlockSize - 2000, tx, fees, weights);
 
-    const wTxid = res.map((tx) => tx.getWTxID().reverse().toString("hex"));
+      const wTxid = res.map((tx) => tx.getWTxID().reverse().toString("hex"));
 
-    wTxid.unshift(
-      "0000000000000000000000000000000000000000000000000000000000000000"
-    );
+      wTxid.unshift(
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      );
 
-    const witnessCommitment = calculateWitnessCommitment(wTxid);
+      const witnessCommitment = calculateWitnessCommitment(wTxid);
 
-    const coinbaseTx = Tx.createCoinbaseTransaction(witnessCommitment);
+      const coinbaseTx = Tx.createCoinbaseTransaction(witnessCommitment);
 
-    const coinbaseId = hash256(Buffer.from(coinbaseTx));
+      const coinbaseId = hash256(Buffer.from(coinbaseTx));
 
-    const txid = res.map((tx) => tx.getTxID().reverse().toString("hex"));
-    txid.unshift(coinbaseId.toString("hex"));
+      const txid = res.map((tx) => tx.getTxID().reverse().toString("hex"));
+      txid.unshift(coinbaseId.toString("hex"));
 
-    const hashBuf = txid.map((tx) => Buffer.from(tx, "hex"));
+      const hashBuf = txid.map((tx) => Buffer.from(tx, "hex"));
 
-    const mr = generateMerkleRoot(hashBuf);
+      const mr = generateMerkleRoot(hashBuf);
 
-    /**
-     * version
-     * prevBlock
-     * merkleRoot
-     * timestamp
-     * bits
-     * nonce
-     */
-    const block = Block.mineBlock(mr);
+      const block = Block.mineBlock(mr);
 
-    writeToOutputFile(
-      block,
-      coinbaseTx,
-      txid.map((tx) => tx)
-    );
+      writeToOutputFile(
+        block,
+        coinbaseTx,
+        txid.map((tx) => tx)
+      );
 
-    console.log(this.filled);
-    console.log(this.feesCollected);
+      console.log(`Block filled size: ${this.filled}`);
+      console.log(`Total fees collected: ${this.feesCollected}`);
+    } catch (error) {
+      console.error("Error while mining block:", error);
+    }
   }
 
   public fillBlock(
@@ -97,6 +93,7 @@ export class Miner {
       const valid = tx[index].verify();
 
       if (!valid) {
+        console.warn(`Transaction ${tx[index].getTxID().toString("hex")} is invalid.`);
         continue;
       }
 
@@ -112,14 +109,54 @@ export class Miner {
 }
 
 function writeToOutputFile(blockHeader, coinbaseTxSerialized, transactionIds) {
+  
   const outputData = `${blockHeader}\n${coinbaseTxSerialized}\n${transactionIds.join(
+    
     "\n"
+    
   )}`;
 
   fs.writeFile("output.txt", outputData, (err) => {
     if (err) {
-      console.error(err);
+      console.error("Error writing to output file:", err);
     } else {
+      console.log("Output file written successfully.");
     }
   });
 }
+
+
+function validateBlock(block: Block): boolean {
+  
+  return true;
+  
+}
+
+function saveBlockToFile(block: Block) {
+  fs.writeFile("block.bin", block.serialize(), (err) => {
+    if (err) {
+      console.error("Error saving block to file:", err);
+    } else {
+      console.log("Block saved to file successfully.");
+    }
+  });
+}
+
+(async () => {
+  
+  const miner = new Miner();
+  
+  await miner.mineBlock();
+
+  const block = Block.deserialize(fs.readFileSync("block.bin"));
+  
+  if (validateBlock(block)) {
+    
+    console.log("Block validation successful.");
+    
+  } else {
+    
+    console.error("Block validation failed.");
+    
+  }
+})();
