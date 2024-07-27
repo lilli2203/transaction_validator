@@ -1,6 +1,6 @@
 import { writeBytesReverse } from "./util/BufferUtil";
 import { hash256 } from "./util/Hash256";
-import { bigFromBufLE } from "./util/BigIntUtil";
+import { bigFromBufLE, bigToBufLE } from "./util/BigIntUtil";
 import { Readable } from "stream";
 
 const difficulty = Buffer.from(
@@ -26,16 +26,6 @@ export class Block {
   public timestamp: bigint;
   public bits: Buffer;
   public nonce: Buffer;
-
-  /**
-   * Represents a Block
-   * @param version
-   * @param prevBlock
-   * @param merkleRoot
-   * @param timestamp
-   * @param bits
-   * @param nonce
-   */
   constructor(
     version: bigint,
     prevBlock: Buffer,
@@ -70,6 +60,62 @@ export class Block {
       nonce++;
     }
   }
+  public validate(): boolean {
+    const block = this.serialize();
+    const hash = hash256(Buffer.from(block, "hex")).reverse();
+    return difficulty.compare(hash) > 0;
+  }
+  public toJSON() {
+    return {
+      version: this.version.toString(),
+      prevBlock: this.prevBlock.toString('hex'),
+      merkleRoot: this.merkleRoot.toString('hex'),
+      timestamp: this.timestamp.toString(),
+      bits: this.bits.toString('hex'),
+      nonce: this.nonce.toString('hex'),
+    };
+  }
+  public static fromJSON(json: any): Block {
+    return new Block(
+      BigInt(json.version),
+      Buffer.from(json.prevBlock, 'hex'),
+      Buffer.from(json.merkleRoot, 'hex'),
+      BigInt(json.timestamp),
+      Buffer.from(json.bits, 'hex'),
+      Buffer.from(json.nonce, 'hex')
+    );
+  }
+  public serialize(): string {
+    let serialize = "";
+    serialize += bigToBufLE(this.version, 4).toString('hex');
+    serialize += this.prevBlock.reverse().toString('hex');
+    serialize += this.merkleRoot.reverse().toString('hex');
+    serialize += bigToBufLE(this.timestamp, 4).toString('hex');
+    serialize += this.bits.reverse().toString('hex');
+    serialize += this.nonce.reverse().toString('hex');
+    return serialize;
+  }
+
+  public static deserialize(data: string): Block {
+    const buffer = Buffer.from(data, 'hex');
+    const stream = new Readable();
+    stream.push(buffer);
+    stream.push(null);
+    return Block.parse(stream);
+  }
+
+  public getHeader(): Buffer {
+    const version = bigToBufLE(this.version, 4);
+    const prevBlock = this.prevBlock.reverse();
+    const merkleRoot = this.merkleRoot.reverse();
+    const timestamp = bigToBufLE(this.timestamp, 4);
+    const bits = this.bits.reverse();
+    const nonce = this.nonce.reverse();
+    return Buffer.concat([version, prevBlock, merkleRoot, timestamp, bits, nonce]);
+  }
+  public computeHash(): Buffer {
+    return hash256(this.getHeader());
+  }
 }
 
 function createBlock(merkle_root, nonce) {
@@ -88,6 +134,3 @@ function createBlock(merkle_root, nonce) {
 
   return serialize;
 }
-
-// 136156
-// 19877820
