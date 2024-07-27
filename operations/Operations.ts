@@ -97,6 +97,7 @@ export function op3(stack: Buffer[]): boolean {
 export function opCheckSigVerify(stack: Buffer[], z: Buffer): boolean {
   return opCheckSig(stack, z) && opVerify(stack);
 }
+
 export function opCheckSig(stack: Buffer[], z: Buffer): boolean {
   if (stack.length < 2) {
     return false;
@@ -328,3 +329,61 @@ export function decodeNum(buf: Buffer): bigint {
     return result;
   }
 }
+
+// Additional utility functions and opcode implementations
+
+export function opAdd(stack: Buffer[]): boolean {
+  if (stack.length < 2) {
+    return false;
+  }
+
+  const a = decodeNum(stack.pop());
+  const b = decodeNum(stack.pop());
+  stack.push(encodeNum(a + b));
+
+  return true;
+}
+
+export function opSub(stack: Buffer[]): boolean {
+  if (stack.length < 2) {
+    return false;
+  }
+
+  const a = decodeNum(stack.pop());
+  const b = decodeNum(stack.pop());
+  stack.push(encodeNum(a - b));
+
+  return true;
+}
+
+export function opMul(stack: Buffer[]): boolean {
+  if (stack.length < 2) {
+    return false;
+  }
+
+  const a = decodeNum(stack.pop());
+  const b = decodeNum(stack.pop());
+  stack.push(encodeNum(a * b));
+
+  return true;
+}
+
+export function opDiv(stack: Buffer[]): boolean {
+  if (stack.length < 2) {
+    return false;
+  }
+
+  const a = decodeNum(stack.pop());
+  const b = decodeNum(stack.pop());
+  stack.push(encodeNum(a / b));
+
+  return true;
+}
+
+export const ExtendedOperations = {
+  ...Operations,
+  [OpCode.OP_ADD]: opAdd,
+  [OpCode.OP_SUB]: opSub,
+  [OpCode.OP_MUL]: opMul,
+  [OpCode.OP_DIV]: opDiv,
+};
